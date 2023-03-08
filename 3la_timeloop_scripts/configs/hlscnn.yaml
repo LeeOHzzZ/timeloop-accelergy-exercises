@@ -1,0 +1,123 @@
+architecture:
+  version: 0.3
+  subtree:
+    - name: system
+      local:
+        - name: DRAM
+          class: DRAM
+          attributes:
+            type: LPDDR4
+            block-size: 8
+            word-bits: 16
+      subtree:
+        - name: HLSCNN
+          attributes:
+            technology: 45nm
+          local:
+            - name: DummyBuffer
+              class: regfile
+              attributes:
+                depth: 16
+                width: 128
+                word-bits: 16
+                block-size: 8
+          subtree:
+          - name: PE
+            local:
+              - name: Resigsters-Weight
+                class: regfile
+                attributes:
+                  entries: 32768
+                  block-size: 8
+                  word-bits: 16
+                  meshX: 1
+                  read_bandwidth: 8
+                  write_bandwidth: 8
+              - name: Resigsters-Input
+                class: regfile
+                attributes:
+                  entries: 16384
+                  block-size: 8
+                  word-bits: 16
+                  meshX: 1
+                  read_bandwidth: 8
+                  write_bandwidth: 8
+              - name: Resigsters-Output
+                class: regfile
+                attributes:
+                  entries: 16384
+                  block-size: 8
+                  word-bits: 16
+                  meshX: 1
+                  read_bandwidth: 8
+                  write_bandwidth: 8
+              - name: mac
+                class: intmac
+                attributes:
+                  datawidth: 16
+                  meshX : 1
+
+architecture_constraints:
+  targets:
+    - target: Resigsters-Weight
+      type: bypass
+      bypass: [Inputs, Outputs]
+      keep: [Weights]
+    - target: Resigsters-Input
+      type: bypass
+      bypass: [Weights, Outputs]
+      keep: [Inputs]
+    - target: Resigsters-Output
+      type: bypass
+      bypass: [Inputs, Weights]
+      keep: [Outputs]
+    - target: DummyBuffer
+      type: bypass
+      bypass: [Inputs, Outputs, Weights]
+
+    - target: DRAM
+      type: temporal
+      factors: R=1 S=1
+    - target: Resigsters-Weight
+      type: temporal
+      factors: C1 K1 P1 Q1 N1 
+    - target: Resigsters-Input
+      type: temporal
+      factors: K1 C<1025 S1 R1 P1 Q1 N1
+    - target: Resigsters-Output
+      type: temporal
+      factors: K<257 C1 S1 R1 N1
+    - target: DummyBuffer
+      type: temporal
+      factors: N=1 K=1 C=1 P=1 Q=1 R=1 S=1
+
+mapspace_constraints:
+  targets:
+    - target: DummyBuffer
+      type: temporal
+      permutation: NKCPQRS
+
+mapper:
+  live-status : False
+  num-thread: 16
+  algorithm: hybrid
+  optimization-metrics:
+  - last-level-accesses
+  search-size: 20000
+  victory-condition: 1000
+  timeout: 0
+
+problem:
+  R       : 3
+  S       : 3
+  P       : 112
+  Q       : 112
+  C       : 256
+  K       : 256
+  N       : 1
+  Wstride : 1
+  Wdilation: 1
+  Hstride : 1
+  Hdilation: 1
+  shape: cnn-layer
+
